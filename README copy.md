@@ -1,4 +1,4 @@
-# JI-Validator
+# 验证码校验系统
 
 这是一个基于FastAPI后端和原生JavaScript前端的验证码校验系统。
 
@@ -78,7 +78,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```json
 {
   "code": "123456",
-  "timestamp": "2025-05-24T14:43:05.75+08:00"
+  "timestamp": 1684567890000
 }
 ```
 
@@ -89,7 +89,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```json
 {
   "code": "123456",
-  "timestamp": "2025-05-24T14:43:05.75+08:00"
+  "timestamp": 1684567890000
 }
 ```
 

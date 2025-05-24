@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>验证码校验系统</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        
+        .title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        
+        .verification-code {
+            font-size: 32px;
+            font-weight: bold;
+            color: #007bff;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 25px 0;
+            letter-spacing: 4px;
+            border: 2px solid #007bff;
+            user-select: all;
+        }
+        
+        .button {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+        }
+        
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
+        }
+        
+        .button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .instructions {
+            background: #e9ecef;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        
+        .instructions h3 {
+            margin-top: 0;
+            color: #495057;
+        }
+        
+        .instructions ol {
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin: 8px 0;
+            line-height: 1.5;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="title">验证码校验系统</div>
+        
+        <div id="step1">
+            <p>点击下方按钮生成验证码并自动复制到剪贴板</p>
+            <button class="button" onclick="generateCode()">生成验证码</button>
+        </div>
+        
+        <div id="step2" class="hidden">
+            <div class="instructions">
+                <h3>操作步骤：</h3>
+                <ol>
+                    <li>验证码已复制到剪贴板</li>
+                    <li>问卷页面将自动打开（新窗口）</li>
+                    <li>在问卷中粘贴验证码并提交</li>
+                    <li>返回此页面点击"验证"按钮</li>
+                </ol>
+            </div>
+            
+            <div>
+                <strong>您的验证码：</strong>
+                <div class="verification-code" id="codeDisplay"></div>
+            </div>
+            
+            <button class="button" onclick="openQuestionnaire()">打开问卷</button>
+            <button class="button" onclick="verifyCode()">验证提交</button>
+        </div>
+        
+        <div id="loading" class="hidden">
+            <div class="spinner"></div>
+            <p>正在验证中...</p>
+        </div>
+        
+        <div id="status"></div>
+    </div>
+
+    <script>
+        let currentCode = '';
+        let codeTimestamp = 0;
+
+        async function generateCode() {
+            try {
+                const response = await fetch('http://localhost:8000/generate-code', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('网络请求失败');
+                }
+                
+                const data = await response.json();
+                currentCode = data.code;
+                codeTimestamp = Date.now();
+                
+                // 显示验证码
+                document.getElementById('codeDisplay').textContent = currentCode;
+                
+                // 复制到剪贴板
+                await copyToClipboard(currentCode);
+                
+                // 显示第二步
+                document.getElementById('step1').classList.add('hidden');
+                document.getElementById('step2').classList.remove('hidden');
+                
+                showStatus('验证码已生成并复制到剪贴板！', 'success');
+                
+            } catch (error) {
+                showStatus('生成验证码失败：' + error.message, 'error');
+            }
+        }
+
+        async function copyToClipboard(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                return true;
+            } catch (err) {
+                // 备用方案
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                try {
+                    document.execCommand('copy');
+                    return true;
+                } catch (err) {
+                    console.error('复制失败:', err);
+                    return false;
+                } finally {
+                    document.body.removeChild(textArea);
+                }
+            }
+        }
+
+        function openQuestionnaire() {
+            // 使用 window.open 打开新窗口（不是新标签页）
+            const popup = window.open(
+                'https://wj.sjtu.edu.cn/q/', // 替换为实际问卷链接
+                'questionnaire',
+                'width=800,height=600,scrollbars=yes,resizable=yes,toolbar=no,menubar=no,location=no'
+            );
+            
+            if (popup) {
+                showStatus('问卷页面已在新窗口中打开，请在问卷中粘贴验证码并提交', 'info');
+            } else {
+                showStatus('无法打开新窗口，请检查浏览器弹窗拦截设置', 'error');
+            }
+        }
+
+        async function verifyCode() {
+            if (!currentCode) {
+                showStatus('请先生成验证码', 'error');
+                return;
+            }
+            
+            // 显示加载状态
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('status').innerHTML = '';
+            
+            try {
+                const response = await fetch('http://localhost:8000/verify-code', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        code: currentCode,
+                        timestamp: codeTimestamp
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('网络请求失败');
+                }
+                
+                const data = await response.json();
+                
+                if (data.verified) {
+                    showStatus(`验证成功！Welcome, ${data.user_name}`, 'success');
+                    // 重置系统
+                    setTimeout(() => {
+                        resetSystem();
+                    }, 5000);
+                } else {
+                    showStatus('验证失败：' + data.message, 'error');
+                }
+                
+            } catch (error) {
+                showStatus('验证失败：' + error.message, 'error');
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function resetSystem() {
+            currentCode = '';
+            codeTimestamp = 0;
+            document.getElementById('step1').classList.remove('hidden');
+            document.getElementById('step2').classList.add('hidden');
+            document.getElementById('status').innerHTML = '';
+            document.getElementById('codeDisplay').textContent = '';
+        }
+
+        // 页面加载完成后的初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            showStatus('欢迎使用验证码校验系统', 'info');
+        });
+    </script>
+</body>
+</html>
